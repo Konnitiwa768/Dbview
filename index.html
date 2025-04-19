@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Pn.db ビューア</title>
+</head>
+<body>
+  <h2>Pn.db を読み込んで表示</h2>
+  <input type="file" id="fileInput" accept=".db">
+  <pre id="output">ファイルを選択してください</pre>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <script>
+    const output = document.getElementById('output');
+    const fileInput = document.getElementById('fileInput');
+
+    initSqlJs().then(SQL => {
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const arrayBuffer = await file.arrayBuffer();
+        const db = new SQL.Database(new Uint8Array(arrayBuffer));
+        try {
+          const res = db.exec("SELECT name FROM sqlite_master WHERE type='table';");
+          if (res.length === 0) {
+            output.textContent = "テーブルが見つかりません。";
+            return;
+          }
+
+          output.textContent = "";
+          for (const table of res[0].values) {
+            const tableName = table[0];
+            output.textContent += `テーブル: ${tableName}\n`;
+
+            const rows = db.exec(`SELECT * FROM ${tableName};`);
+            if (rows.length > 0) {
+              const cols = rows[0].columns;
+              const values = rows[0].values;
+
+              for (const row of values) {
+                output.textContent += cols.map((col, i) => `${col}: ${row[i]}`).join(", ") + "\n";
+              }
+            } else {
+              output.textContent += "（中身なし）\n";
+            }
+
+            output.textContent += "\n";
+          }
+        } catch (err) {
+          output.textContent = "読み込みエラー: " + err;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
